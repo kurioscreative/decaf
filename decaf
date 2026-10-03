@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# decaf: kill every caffeinate process owned by the current user.
+set -euo pipefail
+
+# -x matches the exact process name, so we never hit e.g. "caffeinate-helper"
+# or a shell whose args merely mention caffeinate. -u limits us to our own processes.
+pids=$(pgrep -x -u "$USER" caffeinate || true)
+
+if [[ -z "$pids" ]]; then
+  echo "No caffeinate processes running."
+  exit 0
+fi
+
+ps -o pid=,command= -p "${pids//$'\n'/,}"
+pkill -x -u "$USER" caffeinate
+echo "Killed $(wc -l <<<"$pids" | tr -d ' ') caffeinate process(es)."
