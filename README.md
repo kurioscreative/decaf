@@ -17,6 +17,14 @@ Apps also use `caffeinate` to keep your Mac awake while they work (Claude Code d
 ## Install
 
 ```bash
+brew install kurioscreative/tap/decaf
+```
+
+Update with `brew upgrade decaf`.
+
+### Without Homebrew
+
+```bash
 mkdir -p ~/.local/bin
 curl -fsSL https://raw.githubusercontent.com/kurioscreative/decaf/main/decaf -o ~/.local/bin/decaf
 chmod +x ~/.local/bin/decaf
