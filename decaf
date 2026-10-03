@@ -1,16 +1,43 @@
 #!/usr/bin/env bash
-# decaf: kill every caffeinate process owned by the current user.
+# decaf: kill the caffeinate sessions you started from a shell.
+# Sessions started by apps (e.g. Claude Code) are left alone unless --all.
 set -euo pipefail
 
-# -x matches the exact process name, so we never hit e.g. "caffeinate-helper"
-# or a shell whose args merely mention caffeinate. -u limits us to our own processes.
-pids=$(pgrep -x -u "$USER" caffeinate || true)
+SHELLS=" sh bash zsh fish dash ksh csh tcsh nu "
 
-if [[ -z "$pids" ]]; then
-  echo "No caffeinate processes running."
-  exit 0
+all=false
+case "${1:-}" in
+  "") ;;
+  --all) all=true ;;
+  *) echo "usage: decaf [--all]" >&2; exit 2 ;;
+esac
+
+targets=()
+skipped=0
+for pid in $(pgrep -x -u "$USER" caffeinate || true); do
+  # A timed session (-t) can exit between pgrep and here; just move on.
+  ppid=$(ps -o ppid= -p "$pid" | tr -d ' ') || continue
+  parent=$(ps -o comm= -p "$ppid") || continue
+  parent=${parent##*/}  # /bin/zsh -> zsh
+  parent=${parent#-}    # -zsh (login shell) -> zsh
+
+  # ppid 1 means orphaned: the shell that started it is gone, so nothing relies on it.
+  if $all || [[ $ppid == 1 || $SHELLS == *" $parent "* ]]; then
+    targets+=("$pid")
+  else
+    skipped=$((skipped + 1))
+  fi
+done
+
+if [[ ${#targets[@]} -eq 0 ]]; then
+  echo "No caffeinate sessions started from a shell."
+else
+  ps -o pid=,command= -p "$(IFS=,; echo "${targets[*]}")"
+  # Same race as above: a target may already be gone, which is the outcome we want.
+  kill "${targets[@]}" 2>/dev/null || true
+  echo "Killed ${#targets[@]} caffeinate process(es)."
 fi
 
-ps -o pid=,command= -p "${pids//$'\n'/,}"
-pkill -x -u "$USER" caffeinate
-echo "Killed $(wc -l <<<"$pids" | tr -d ' ') caffeinate process(es)."
+if [[ $skipped -gt 0 ]]; then
+  echo "Left $skipped started by other apps running (use --all to kill those too)."
+fi
