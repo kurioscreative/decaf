@@ -1,0 +1,38 @@
+# On a version tag, point the Homebrew formula at the new release.
+name: Update Homebrew formula
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  bump-formula:
+    runs-on: ubuntu-latest
+    steps:
+      # GITHUB_TOKEN can only write to this repo, so pushing to the tap needs
+      # a deploy key with write access on kurioscreative/homebrew-tap.
+      - uses: actions/checkout@v5
+        with:
+          repository: kurioscreative/homebrew-tap
+          ssh-key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+
+      - name: Update url and sha256
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          url="https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${TAG}.tar.gz"
+          sha=$(curl -fsSL "$url" | sha256sum | cut -d' ' -f1)
+          sed -i -E \
+            -e "s|^  url \".*\"|  url \"${url}\"|" \
+            -e "s|^  sha256 \".*\"|  sha256 \"${sha}\"|" \
+            Formula/decaf.rb
+
+          if git diff --quiet; then
+            echo "Formula already points at ${TAG}"
+            exit 0
+          fi
+          git diff
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "decaf ${TAG#v}"
+          git push

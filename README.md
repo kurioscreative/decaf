@@ -43,6 +43,14 @@ export PATH="$HOME/.local/bin:$PATH"
 
 If you started a command under caffeinate (`caffeinate -i make build`), `decaf` stops the caffeinate wrapper but not the command itself. The command keeps running; your Mac just stops being kept awake.
 
+## Releasing
+
+```bash
+git tag -a v0.2.0 -m "v0.2.0" && git push origin v0.2.0
+```
+
+Pushing a `v*` tag runs [`.github/workflows/release.yml`](.github/workflows/release.yml), which points the formula in [kurioscreative/homebrew-tap](https://github.com/kurioscreative/homebrew-tap) at the new tag. Users get it with `brew upgrade decaf`.
+
 ## License
 
 MIT
