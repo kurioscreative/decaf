@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
 # decaf: kill the caffeinate sessions you started from a shell.
 # Sessions started by apps (e.g. Claude Code) are left alone unless --all.
+# --list shows every session and who started it, without killing anything.
 set -euo pipefail
 
 SHELLS=" sh bash zsh fish dash ksh csh tcsh nu "
 
-all=false
+mode=default
 case "${1:-}" in
   "") ;;
-  --all) all=true ;;
-  *) echo "usage: decaf [--all]" >&2; exit 2 ;;
+  --all) mode=all ;;
+  --list) mode=list ;;
+  *) echo "usage: decaf [--all | --list]" >&2; exit 2 ;;
 esac
 
+rows=()
 targets=()
 skipped=0
 for pid in $(pgrep -x -u "$USER" caffeinate || true); do
@@ -22,12 +25,32 @@ for pid in $(pgrep -x -u "$USER" caffeinate || true); do
   parent=${parent#-}    # -zsh (login shell) -> zsh
 
   # ppid 1 means orphaned: the shell that started it is gone, so nothing relies on it.
-  if $all || [[ $ppid == 1 || $SHELLS == *" $parent "* ]]; then
+  [[ $ppid == 1 ]] && parent="(orphan)"
+  from_shell=false
+  if [[ $ppid == 1 || $SHELLS == *" $parent "* ]]; then
+    from_shell=true
+  fi
+
+  if [[ $mode == list ]]; then
+    cmd=$(ps -o command= -p "$pid") || continue
+    if $from_shell; then killed_by="decaf"; else killed_by="--all only"; fi
+    rows+=("$(printf "%-7s %-12s %-11s %s" "$pid" "$parent" "$killed_by" "$cmd")")
+  elif [[ $mode == all ]] || $from_shell; then
     targets+=("$pid")
   else
     skipped=$((skipped + 1))
   fi
 done
+
+if [[ $mode == list ]]; then
+  if [[ ${#rows[@]} -eq 0 ]]; then
+    echo "No caffeinate sessions running."
+  else
+    printf "%-7s %-12s %-11s %s\n" PID "STARTED BY" "KILLED BY" COMMAND
+    printf "%s\n" "${rows[@]}"
+  fi
+  exit 0
+fi
 
 if [[ ${#targets[@]} -eq 0 ]]; then
   echo "No caffeinate sessions started from a shell."

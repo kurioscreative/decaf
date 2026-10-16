@@ -14,6 +14,16 @@ Left 2 started by other apps running (use --all to kill those too).
 
 Apps also use `caffeinate` to keep your Mac awake while they work (Claude Code does, for example). `decaf` leaves those alone by default. Pass `--all` to kill every `caffeinate` you own.
 
+To see what's running without killing anything:
+
+```console
+$ decaf --list
+PID     STARTED BY   KILLED BY   COMMAND
+36014   zsh          decaf       caffeinate -i
+62764   claude       --all only  caffeinate -i -t 300
+64179   (orphan)     decaf       caffeinate -t 3600
+```
+
 ## Install
 
 ```bash
